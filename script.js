@@ -50,8 +50,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p style="font-size: 0.9em; color: #666;">Recebido</p>
                     <p style="font-size: 1.2em; font-weight: bold; color: #333;">R$${expense.received}</p>
                 </td>
+                 <td style="padding: 8px; vertical-align: top;">
+                    <p style="font-size: 0.9em; color: #666;">Peso:</p>
+                    <p style="font-size: 1.2em; font-weight: bold; color: #333;">${expense.weight}</p>
+                </td>
+                
             </tr>
             <tr>
+
+<td style="padding: 8px; vertical-align: top;">
+                    <p style="font-size: 0.9em; color: #666;">Qtd NFs:</p>
+                    <p style="font-size: 1.2em; font-weight: bold; color: #333;">${expense.nfs}</p>
+                </td>
+
                 <td style="padding: 8px; vertical-align: top;">
                     <p style="font-size: 0.9em; color: #666;">Lucro</p>
                     <p style="font-size: 1.2em; font-weight: bold; color: green;">R$${expense.profit}</p>
@@ -60,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p style="font-size: 0.9em; color: #666;">Data</p>
                     <p style="font-size: 1.2em; font-weight: bold; color: #333;">${expense.date}</p>
                 </td>
+               
             </tr>
         </table>
     </div>`;
@@ -85,8 +97,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const received = document.getElementById('received-amount').value;
         const date = document.getElementById('expense-date').value;
         const profit = (received - amount).toFixed(2);
+        const weight = document.getElementById('expense-weight').value;
+        const nfs = document.getElementById('expense-nfs').value;
 
-        const expense = { driver, store, amount, received, profit, date };
+
+
+        const expense = {
+    driver,
+    store,
+    amount,
+    received,
+    profit,
+    date,
+    weight,
+    nfs
+};
         const expenses = JSON.parse(localStorage.getItem('expenses')) || [];
         expenses.push(expense);
         localStorage.setItem('expenses', JSON.stringify(expenses));
@@ -141,70 +166,89 @@ document.addEventListener('DOMContentLoaded', () => {
     filterDriver.addEventListener('change', applyFilters);
     filterStore.addEventListener('change', applyFilters); // Adiciona o evento para o filtro de loja
 
+
+
+
+
+
+
     // Função para gerar o PDF
     downloadPdfButton.addEventListener('click', () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
     // Configurações iniciais
-    const pageHeight = doc.internal.pageSize.getHeight(); // Altura da página
-    const margin = 14; // Margem
-    let y = margin; // Posição vertical inicial
-    const lineHeight = 10; // Altura de cada linha
-    const maxLinesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight); // Máximo de linhas por página
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    let y = margin;
+    const lineHeight = 10;
+    const maxLinesPerPage = Math.floor((pageHeight - margin * 2) / lineHeight);
 
-    // Função para adicionar uma nova página
     const addNewPage = () => {
         doc.addPage();
-        y = margin; // Reinicia a posição Y para o topo da nova página
+        y = margin;
     };
 
-    // Cabeçalho do PDF
+    // Cabeçalho
     doc.setFontSize(18);
-
     doc.text('Fechamento Tenda', margin, y);
-    y += lineHeight * 2; // Espaço após o cabeçalho
+    y += lineHeight * 2;
 
-    // Adiciona o intervalo de datas do filtro
+    // Período
     const startDate = filterStartDate.value || 'Não especificada';
     const endDate = filterEndDate.value || 'Não especificada';
     doc.setFontSize(14);
     doc.text(`Período: ${startDate} a ${endDate}`, margin, y);
-    y += lineHeight * 2; // Espaço após o período
+    y += lineHeight * 2;
 
-    // Adiciona o título das colunas
+    // Título das colunas
     doc.setFontSize(12);
-    doc.text('Motorista - Loja - Valor - Data', margin, y);
-    y += lineHeight; // Espaço após o título
+    doc.text('Motorista - Loja - Valor - Data - Peso (kg) - Qtd NFs', margin, y);
+    y += lineHeight;
 
-    // Adiciona cada saída filtrada
-    let totalValue = 0; // Para somar os valores das saídas
+    // Totais
+    let totalValue = 0;
+    let totalWeight = 0;
+    let totalNfs = 0;
 
-    filteredExpenses.forEach((expense, index) => {
-        // Verifica se é necessário adicionar uma nova página
+    // Linhas dos dados
+    filteredExpenses.forEach((expense) => {
         if (y + lineHeight > pageHeight - margin) {
             addNewPage();
         }
 
-        const expenseText = `${expense.driver} - ${expense.store} - R$ ${expense.received} - ${expense.date}`;
+        const expenseText = `${expense.driver} - ${expense.store} - Valor: R$${expense.received} - Data: ${expense.date} - Peso: ${expense.weight || 0}kg - Nfs: ${expense.nfs || 0}`;
         doc.text(expenseText, margin, y);
-        y += lineHeight; // Move para a próxima linha
-        totalValue += parseFloat(expense.received); // Acumula o valor total
+        y += lineHeight;
+
+        totalValue += parseFloat(expense.received || 0);
+        totalWeight += parseFloat(expense.weight || 0);
+        totalNfs += parseInt(expense.nfs || 0);
     });
 
-    // Adiciona o total e a quantidade de saídas ao PDF
-    if (y + lineHeight * 3 > pageHeight - margin) {
+    // Totais finais
+    if (y + lineHeight * 5 > pageHeight - margin) {
         addNewPage();
     }
+
     doc.setFontSize(14);
-    y += lineHeight; // Espaço antes do texto final
+    y += lineHeight;
     doc.text(`Quantidade de Saídas: ${filteredExpenses.length}`, margin, y);
     y += lineHeight;
-    doc.text(`Valor Total: R$${totalValue.toFixed(2)}`, margin, y);
+    doc.text(`Peso Total: ${totalWeight.toFixed(2)} kg`, margin, y);
+    y += lineHeight;
+    doc.text(`Total de NFs: ${totalNfs}`, margin, y);
+    y += lineHeight;
+    doc.text(`Valor Total Recebido: R$ ${totalValue.toFixed(2)}`, margin, y);
 
-    // Salva o PDF
+    // Salvar
     doc.save('Relatorio_de_Saidas.pdf');
 });
+
+
+
+
+
 
 //whats
 const generateWhatsAppMessage = () => {
@@ -213,36 +257,39 @@ const generateWhatsAppMessage = () => {
     const driver = document.getElementById('filter-driver').value || 'Não especificado';
     const store = document.getElementById('filter-store').value || 'Não especificada';
 
-    // Recalcula o valor total das saídas filtradas
     let totalValue = 0;
-    filteredExpenses.forEach(expense => {
-        totalValue += parseFloat(expense.received);
-    });
+    let totalSaidas = filteredExpenses.length;
 
     // Agrupa as saídas por data
-    const groupedExpenses = {};
+    const groupedByDate = {};
+
     filteredExpenses.forEach(expense => {
-        const date = expense.date;
-        if (!groupedExpenses[date]) {
-            groupedExpenses[date] = 0;
+        totalValue += parseFloat(expense.received);
+
+        if (!groupedByDate[expense.date]) {
+            groupedByDate[expense.date] = [];
         }
-        groupedExpenses[date]++;
+        groupedByDate[expense.date].push(expense);
     });
 
-    // Cria a mensagem
+    // Monta a mensagem no formato solicitado
     let message = `*Fechamento Tenda*\n\n`;
     message += `*${store}*\n\n`;
     message += `*${driver}*\n\n`;
-    message += `*_${startDate} a ${endDate}_*\n\n`;
 
-    // Adiciona as saídas por dia
-    for (const [date, count] of Object.entries(groupedExpenses)) {
-        message += `${date} - ${count} Saída${count > 1 ? 's' : ''}\n`;
+    for (const [date, expensesOnDate] of Object.entries(groupedByDate)) {
+    const formattedDate = new Date(date).toLocaleDateString('pt-BR');
+    message += `- Data -> ${formattedDate}\n-`;
+
+        expensesOnDate.forEach((expense, index) => {
+            message += ` Saída ${index + 1} -> Qtd Nfs -> ${expense.nfs || 'X'} - Peso: ${expense.weight}\n`;
+        });
+
+        message += `\n`; // Linha em branco entre datas
     }
 
-    // Adiciona totais
-    message += `\n*Total de Saídas:* ${filteredExpenses.length} saída${filteredExpenses.length > 1 ? 's' : ''}\n`;
-    message += `*Valor total:* R$ ${totalValue.toFixed(2)}\n`;
+    message += `Total de Saídas: ${totalSaidas} saída${totalSaidas > 1 ? 's' : ''}\n`;
+    message += `Valor total: R$ ${totalValue.toFixed(2)}\n`;
 
     return message;
 };
@@ -270,7 +317,6 @@ document.getElementById('send-whatsapp').addEventListener('click', () => {
 
 //excel
 
-
 function exportToExcel() {
     // Use a variável filteredExpenses (já filtrada)
     const data = filteredExpenses.map(expense => [
@@ -279,52 +325,37 @@ function exportToExcel() {
         expense.amount,    // Valor Pago
         expense.received,  // Valor Recebido
         expense.profit,    // Lucro
-        expense.date       // Data
+        expense.date,      // Data
+        expense.weight,    // Peso (kg)
+        expense.nfs        // Qtd NFs
     ]);
 
-    // Calcular o total das saídas e o valor total
+    // Cálculos de totais
     const totalSaidas = filteredExpenses.length;
     const valorTotal = filteredExpenses.reduce((total, expense) => total + parseFloat(expense.received), 0);
+    const pesoTotal = filteredExpenses.reduce((total, expense) => total + parseFloat(expense.weight || 0), 0);
+    const totalNfs = filteredExpenses.reduce((total, expense) => total + parseInt(expense.nfs || 0), 0);
 
-    // Adicionar uma linha de total ao final dos dados
-    data.push([]); // Linha em branco para separação
-    data.push(['Total das Saídas', '', '', '', '', totalSaidas]);
-    data.push(['Valor Total', '', '', '', '', valorTotal.toFixed(2)]);
+    // Adiciona uma linha em branco e linhas de totais
+    data.push([]);
+    data.push(['Total de Saídas', totalSaidas]);
+    data.push(['Peso Total (kg)', pesoTotal.toFixed(2)]);
+    data.push(['Total de NFs', totalNfs]);
+    data.push(['Valor Total Recebido', `R$ ${valorTotal.toFixed(2)}`]);
 
-    // Crie uma planilha (worksheet) com os dados
+    // Cabeçalho da planilha
     const ws = XLSX.utils.aoa_to_sheet([
-        ['Motorista', 'Loja', 'Valor Pago', 'Valor Recebido', 'Lucro', 'Data'], // Cabeçalho
-        ...data // Dados
+        ['Motorista', 'Loja', 'Valor Pago', 'Valor Recebido', 'Lucro', 'Data', 'Peso (kg)', 'Qtd NFs'],
+        ...data
     ]);
 
-    // Crie um livro (workbook) e adicione a planilha
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Saídas');
-
-    // Exporte o arquivo Excel
     XLSX.writeFile(wb, 'Relatorio_Saidas.xlsx');
 }
 
-// Adicione um evento ao botão de exportação
+// Adicione o evento ao botão de exportar
 document.getElementById('export-excel').addEventListener('click', exportToExcel);
-    // Carregar todas as saídas ao iniciar
-  
-    
-   // loadExpenses();
-
-// Verifica se os elementos existem antes de manipular
-if(filterStartDate && filterEndDate) {
-    const today = new Date().toISOString().split('T')[0];
-    filterStartDate.value = today;
-    filterEndDate.value = today;
-    applyFilters();
-}
-
-
-
-
-
-
 
 
     
